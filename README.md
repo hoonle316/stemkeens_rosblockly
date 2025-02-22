@@ -1,4 +1,5 @@
 # Stemkeens Rosblockly
+![image](https://github.com/user-attachments/assets/19d4ce8c-337d-4df1-a62c-adee0f2b950f)
 
 **Stemkeens Rosblockly** is a web block coding platform that simplifies ROS2-based robot modeling and simulation.  
 It enables users to create URDF files through a block-based interface and supports simulation in Gazebo as well as visualization in RViz2, making it accessible even for beginners.
