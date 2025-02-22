@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROS Bridge Connection</title>
+  <!-- Tailwind CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    /* 추가적인 커스텀 스타일 (필요시) */
+  </style>
+</head>
+<body class="bg-blue-900 flex items-center justify-center min-h-screen">
+  <div class="bg-white bg-opacity-20 backdrop-blur-md p-8 rounded-lg shadow-lg w-full max-w-md">
+    <h1 class="text-3xl font-bold mb-6 text-center text-white">ROS Bridge Connection</h1>
+    
+    <div class="mb-4">
+      <input type="text" id="rosbridge-address" placeholder="ws://localhost:9090" 
+             class="w-full px-4 py-2 border border-white rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-transparent text-white placeholder-white" 
+             value="ws://localhost:9090">
+    </div>
+    
+    <button onclick="connectToROS()" 
+            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+      Connect
+    </button>
+    
+    <div id="status" class="mt-4 text-center font-medium text-white">
+      Not connected
+    </div>
+    
+    <div id="loading-spinner" class="mt-4 flex justify-center" style="display: none;">
+      <!-- Tailwind CSS 애니메이션 적용 SVG 스피너 -->
+      <svg class="animate-spin h-8 w-8 text-blue-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+      </svg>
+    </div>
+  </div>
+  
+  <!-- ROSLIB 라이브러리 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/roslib/build/roslib.min.js"></script>
+  <script>
+    let ros;
+    
+    function connectToROS() {
+      const rosbridgeAddress = document.getElementById('rosbridge-address').value;
+      const statusElement = document.getElementById('status');
+      const spinner = document.getElementById('loading-spinner');
+      
+      // WebSocket 주소 형식 유효성 검사
+      if (!/^ws:\/\/.+:\d+$/.test(rosbridgeAddress)) {
+        statusElement.textContent = 'Invalid WebSocket address format.';
+        statusElement.classList.remove('text-green-500');
+        statusElement.classList.add('text-red-500');
+        return;
+      }
+      
+      spinner.style.display = 'flex';
+      statusElement.textContent = 'Connecting...';
+      statusElement.classList.remove('text-red-500');
+      
+      ros = new ROSLIB.Ros({ url: rosbridgeAddress });
+      
+      ros.on('connection', function() {
+        console.log('Connected to rosbridge server.');
+        statusElement.textContent = 'Connected to rosbridge server.';
+        statusElement.classList.remove('text-red-500');
+        statusElement.classList.add('text-green-500');
+        spinner.style.display = 'none';
+        localStorage.setItem('rosbridgeAddress', rosbridgeAddress);
+        window.location.href = 'dashboard.html';
+      });
+      
+      ros.on('error', function(error) {
+        console.error('Error connecting to rosbridge server:', error);
+        statusElement.textContent = 'Error connecting to rosbridge server. Check the address and try again.';
+        statusElement.classList.remove('text-green-500');
+        statusElement.classList.add('text-red-500');
+        spinner.style.display = 'none';
+      });
+      
+      ros.on('close', function() {
+        console.log('Connection to rosbridge server closed.');
+        statusElement.textContent = 'Connection to rosbridge server closed.';
+        statusElement.classList.add('text-red-500');
+        spinner.style.display = 'none';
+      });
+    }
+    
+    // 이전에 사용한 주소를 불러옴
+    document.getElementById('rosbridge-address').value = localStorage.getItem('rosbridgeAddress') || 'ws://localhost:9090';
+  </script>
+</body>
+</html>
