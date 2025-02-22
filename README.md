@@ -4,6 +4,20 @@
 **Stemkeens Rosblockly** is a web block coding platform that simplifies ROS2-based robot modeling and simulation.  
 It enables users to create URDF files through a block-based interface and supports simulation in Gazebo as well as visualization in RViz2, making it accessible even for beginners.
 
+---
+
+## System Requirements
+
+This project has been tested with the following setup:
+
+- **Operating System**: Ubuntu 20.04 LTS
+- **ROS2 Distribution**: Humble
+- **colcon**: 0.10.0 or later
+- **Python**: 3.8 or later
+
+It may also work on other environments, but these are the versions I have confirmed.
+
+---
 
 ## Table of Contents
 1. [Project Introduction](#project-introduction)
