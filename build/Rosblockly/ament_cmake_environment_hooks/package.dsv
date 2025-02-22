@@ -1,0 +1,4 @@
+source;share/Rosblockly/local_setup.bash
+source;share/Rosblockly/local_setup.dsv
+source;share/Rosblockly/local_setup.sh
+source;share/Rosblockly/local_setup.zsh

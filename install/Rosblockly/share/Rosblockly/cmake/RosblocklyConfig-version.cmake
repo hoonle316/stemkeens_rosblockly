@@ -1,0 +1,1 @@
+/home/dev/Stem_ws/build/Rosblockly/ament_cmake_core/RosblocklyConfig-version.cmake
