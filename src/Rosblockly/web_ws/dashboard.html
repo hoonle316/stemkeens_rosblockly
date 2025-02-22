@@ -9,17 +9,6 @@
     <!-- Blockly JavaScript 생성기 추가 -->
     <script src="https://unpkg.com/blockly@10.0.0/javascript.min.js"></script>
 
-    <!-- 로컬 자바스크립트 파일들 -->
-    <!-- Three.js 및 관련 라이브러리 -->
-    <!-- <script src="three.min.js"></script>
-    <script src="TrackballControls.js"></script>
-    <script src="jquery-1.9.1.js"></script>
-    <script src="jquery.xml2json.js"></script>
-    <script src="parserobot.js"></script>
-    <script src="Coordinates.js"></script>
-    <script src="underscore.js"></script>
-    <script src="backbone.js"></script>
-    <script src="scene.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 
     <style>
@@ -873,46 +862,34 @@
         return;
     }
 
-    // 이미 열려 있는 시뮬레이션 창이 있으면 닫습니다.
     if (window.simulationWindow && !window.simulationWindow.closed) {
         window.simulationWindow.close();
     }
 
-    // 시뮬레이션 창을 엽니다.
     window.simulationWindow = window.open('simulation.html', 'simulationWindow', 'width=800,height=600');
 
-    // 시뮬레이션 창에서 준비 완료 메시지를 받을 때까지 대기합니다.
     function receiveMessage(event) {
-        // 보안상의 이유로 event.origin을 확인할 수 있습니다.
         if (event.data && event.data.type === 'simulationReady') {
-            // 이벤트 리스너 제거
             window.removeEventListener('message', receiveMessage);
-
-            // URDF 코드를 시뮬레이션 창으로 전송
             window.simulationWindow.postMessage({ type: 'loadURDF', urdf: urdfCode }, '*');
         }
     }
 
-    // 이벤트 리스너 추가
     window.addEventListener('message', receiveMessage);
 }
 
     function exportToROS() {
-        // 타임스탬프를 이용하여 URDF 파일 이름 생성
         const timestamp = new Date().toISOString().replace(/[-:.]/g, "");
         const urdfFileName = `robot_${timestamp}.urdf`;
         
-        // Blockly에서 생성된 URDF 코드를 가져옴 (저장된 코드가 없으면 기본값 사용)
         const urdfCode = window.savedURDFCode || '<robot name="GeneratedRobot"></robot>';
         
-        // Blob을 사용하여 URDF 파일 생성 및 다운로드 트리거
         const blob = new Blob([urdfCode], { type: 'text/plain' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = urdfFileName;
         link.click();
         
-        // 다운로드 후 URL 객체 해제
         setTimeout(() => URL.revokeObjectURL(link.href), 100);
     }
 
@@ -1005,14 +982,11 @@
 
 
     function containsROS2ControlBlocks() {
-        // Get all blocks in the workspace
         const blocks = workspace.getAllBlocks(false);
-        // Check if any block type includes 'ros2_control' or relevant blocks
         return blocks.some(block => block.type.includes('controller') || block.type.includes('ros2_control'));
     }
 
     function generateYAMLConfig() {
-        // For simplicity, we can generate a basic ros2_control configuration
         return `robot:
     ros__parameters:
         joints:
