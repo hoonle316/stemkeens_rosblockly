@@ -98,7 +98,7 @@ source install/setup.bash
    - Use the block coding interface to drag and drop elements such as links, joints, sensors, and materials.
    - Click the "Export to ROS" button to download the generated URDF file or review the generated code.
 
-```
+
 ## (Optional) rosbridge_server Integration
 To enable real-time communication between the web dashboard and your ROS2 system, you can run the rosbridge server. This allows the web interface to subscribe to topics and send commands using WebSocket connections.
 
