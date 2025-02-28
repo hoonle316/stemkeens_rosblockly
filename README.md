@@ -98,14 +98,6 @@ source install/setup.bash
    - Use the block coding interface to drag and drop elements such as links, joints, sensors, and materials.
    - Click the "Export to ROS" button to download the generated URDF file or review the generated code.
 
-3. **Run Gazebo Simulation**
-   ```bash
-   ros2 launch stem_keens_pkg gazebo_launch.py
-   
----
-## Visualize in RViz2
-```
-ros2 launch stem_keens_pkg rviz2_launch.py
 ```
 ## (Optional) rosbridge_server Integration
 To enable real-time communication between the web dashboard and your ROS2 system, you can run the rosbridge server. This allows the web interface to subscribe to topics and send commands using WebSocket connections.
