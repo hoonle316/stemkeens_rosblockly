@@ -663,10 +663,11 @@
         Blockly.JavaScript['cylinder'] = function(block) {
             var radius = block.getFieldValue('RADIUS');
             var height = block.getFieldValue('HEIGHT');
+            // 원통을 y축 중심으로 회전하도록 하기 위해 rpy를 적용
             var code = `<geometry>
-        <cylinder radius="${radius}" length="${height}"/>
-    </geometry>
-    `;
+                <cylinder radius="${radius}" length="${height}"/>
+            </geometry>
+            <origin rpy="1.5708 0 0"/>`;
             return code;
         };
 
