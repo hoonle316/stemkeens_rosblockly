@@ -108,6 +108,16 @@ To enable real-time communication between the web dashboard and your ROS2 system
 ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 ```
 ---
+
+## Development Status
+We are currently working on improving the **ROS2 Control** integration.  
+- Adding `<ros2_control>` tag generation to the URDF code  
+- Supporting dynamic block logic for various controller types  
+- Enhancing the block UI to handle transmissions, hardware interfaces, and more  
+
+If you have any suggestions or would like to contribute, please feel free to open an [issue](../../issues) or submit a pull request.
+
+---
 ## License
 This project is licensed under the [Apache License 2.0](./LICENSE).  
 Please refer to the [LICENSE file](./LICENSE) for more details.
