@@ -10,7 +10,7 @@ It enables users to create URDF files through a block-based interface and suppor
 
 This project has been tested with the following setup:
 
-- **Operating System**: Ubuntu 20.04 LTS
+- **Operating System**: Ubuntu 22.04 LTS
 - **ROS2 Distribution**: Humble
 - **colcon**: 0.10.0 or later
 - **Python**: 3.8 or later
@@ -22,11 +22,9 @@ It may also work on other environments, but these are the versions I have confir
 ## Table of Contents
 1. [Project Introduction](#project-introduction)
 2. [Features](#features)
-3. [Folder Structure](#folder-structure)
-4. [Installation and Build](#installation-and-build)
-5. [Usage](#usage)
-6. [License](#license)
-7. [Contact](#contact)
+3. [Enter URL](#enter-url)
+4. [License](#license)
+5. [Contact](#contact)
 
 ---
 
@@ -45,77 +43,15 @@ It may also work on other environments, but these are the versions I have confir
   - Blocks are converted into a URDF file, quickly outlining the robot’s structure.
 - **Gazebo and RViz2 Simulation**  
   - Provides launch files to simulate the robot in Gazebo and visualize it in RViz2.
-- **(Optional) rosbridge Integration**  
-  - When used with `rosbridge_server`, the web interface can monitor and control ROS2 topics in real time.
+
 
 ---
 
-## Folder Structure
+## ENTER URL
 
-```plaintext
-stemkeens_rosblockly/
-├── build/               # colcon build outputs (ignored in Git)
-├── install/             # Installation outputs (ignored in Git)
-├── log/                 # Log files (ignored in Git)
-├── src/
-│   └── Rosblockly/
-│       ├── CMakeLists.txt
-│       ├── package.xml
-│       └── web_ws/      # Web-related files (HTML, JS, CSS, etc.)
-└── README.md
 ```
 
----
-
-## Installation and Build
-
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/hoonle316/stemkeens_rosblockly.git
-   cd stemkeens_rosblockly
-
----
-## Build Using colcon
 ```
-colcon build --symlink-install
-```
----
-## Source the environment
-```
-source install/setup.bash
-```
----
-## Usage
-1. **Run the Web Block Coding Interface**  
-   - You can serve the HTML files locally using a simple HTTP server. For example:
-     ```bash
-     cd src/Rosblockly/web_ws
-     python3 -m http.server 7000
-     ```
-     Then, open your browser and navigate to `http://localhost:7000/index.html` (or `dashboard.html`).
-
-2. **Assemble Blocks and Generate URDF Code**  
-   - Use the block coding interface to drag and drop elements such as links, joints, sensors, and materials.
-   - Click the "Export to ROS" button to download the generated URDF file or review the generated code.
-
-
-## (Optional) rosbridge_server Integration
-To enable real-time communication between the web dashboard and your ROS2 system, you can run the rosbridge server. This allows the web interface to subscribe to topics and send commands using WebSocket connections.
-
-**Run the rosbridge server:**
-
-```bash
-ros2 launch rosbridge_server rosbridge_websocket_launch.xml
-```
----
-
-## Development Status
-We are currently working on improving the **ROS2 Control** integration.  
-- Adding `<ros2_control>` tag generation to the URDF code  
-- Supporting dynamic block logic for various controller types  
-- Enhancing the block UI to handle transmissions, hardware interfaces, and more  
-
-If you have any suggestions or would like to contribute, please feel free to open an [issue](../../issues) or submit a pull request.
 
 ---
 ## License
