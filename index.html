@@ -1,0 +1,969 @@
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>ROS Web Dashboard</title>
+        <link rel="icon" href="https://i.ibb.co/k6zJ4sb/favicon-32x32.png" type="image/x-icon">
+        <!-- Blockly 라이브러리 -->
+        <script src="https://unpkg.com/blockly@10.0.0/blockly.min.js"></script>
+        <!-- Blockly JavaScript 생성기 추가 -->
+        <script src="https://unpkg.com/blockly@10.0.0/javascript.min.js"></script>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+        <style>
+            /* 기존 스타일 유지 */
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                overflow: hidden; /* 전체 페이지 스크롤 방지 */
+            }
+
+            .navbar {
+                background-color: #f0d6a3;
+                display: flex;
+                align-items: center;
+                padding: 10px 20px;
+                color: #333;
+                font-weight: bold;
+            }
+
+            .navbar .logo {
+                display: flex;
+                align-items: center;
+            }
+
+            .navbar img {
+                width: 40px;
+                height: 40px;
+                margin-right: 10px;
+            }
+
+            .navbar .title {
+                font-size: 20px;
+            }
+
+            .navbar .buttons {
+                margin-left: auto;
+                display: flex;
+                gap: 10px;
+            }
+
+            .buttons .btn {
+                display: flex;
+                align-items: center;
+                padding: 5px 10px;
+                border-radius: 5px;
+                font-weight: bold;
+                color: white;
+                cursor: pointer;
+            }
+
+            .btn.red {
+                background-color: #dc3545;
+            }
+
+            .btn span {
+                margin-left: 5px;
+            }
+
+            #mainContent {
+                display: flex;
+                height: calc(100vh - 60px);
+            }
+
+            #blocklyDiv {
+                height: 100%;
+                width: 50%;
+                border-right: 1px solid #ccc;
+            }
+
+            #previewDiv {
+                height: 100%;
+                width: 50%;
+                position: relative;
+                overflow: hidden; /* 스크롤 방지 */
+            }
+
+            #simulationFrame {
+                width: 100%;
+                height: 100%;
+                border: none;
+            }
+
+            #container {
+                width: 100%;
+                height: 100%;
+            }
+
+            #codeContainer {
+                display: none;
+                padding: 10px;
+                background-color: white;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                overflow-y: auto;
+                z-index: 10;
+            }
+
+            #codeDiv {
+                width: 100%;
+                height: calc(100% - 50px);
+                border: 1px solid #ccc;
+                background-color: #f9f9f9;
+                padding: 10px;
+                overflow-y: auto;
+                white-space: pre-wrap;
+            }
+
+            #codeContainer h2 {
+                margin-top: 0;
+            }
+
+            .close-btn {
+                position: absolute;
+                top: 10px;
+                right: 20px;
+                cursor: pointer;
+                font-size: 24px;
+                color: #333;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <div class="navbar">
+            <div class="logo">
+                <img src="https://i.ibb.co/CnbdrQh/Frame-1895.png" alt="Logo">
+                <span class="title">Stemkeens Rosblockly</span>
+            </div>
+            <div class="buttons">
+                <div class="btn red" onclick="exportToROS()" title="Export to ROS">
+                    🚀 <span>Export to ROS</span>
+                </div>
+                <div class="btn" onclick="showCode()" title="Show Code">
+                    💻 <span>Code</span>
+                </div>
+                <div class="btn" onclick="sendURDFToSimulation()" title="Send to Simulation">
+                    🖥️ <span>Send to Simulation</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="mainContent">
+            <div id="blocklyDiv"></div>
+
+            <div id="previewDiv">
+                <div id="container"></div>
+                <iframe id="simulationFrame" src="simulation.html"></iframe>
+
+                <div id="codeContainer">
+                    <span class="close-btn" onclick="closeCode()">&times;</span>
+                    <h2>Generated URDF Code</h2>
+                    <div id="codeDiv"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 스크립트를 body 끝부분에 위치시켜 DOM이 로드된 후 실행되도록 합니다. -->
+        <script>
+        let simulationWindow = null;
+
+            // 워크스페이스 생성 (생성기 정의 후)
+            var workspace = Blockly.inject('blocklyDiv', {
+                toolbox: `<xml>
+                    <category name="World Link" colour="#1E88E5">
+                        <block type="world_link"></block>
+                    </category>
+                    <category name="Link" colour="#43A047">
+                        <block type="link"></block>
+                        <block type="origin"></block>
+                        <block type="material"></block>
+                    </category>
+                    <category name="Joint" colour="#FB8C00">
+                        <block type="joint"></block>
+                        <block type="axis"></block>
+                        <block type="limit"></block>
+                    </category>        
+                    <category name="Geometry" colour="#8E24AA">
+                        <block type="box"></block>
+                        <block type="cylinder"></block>
+                    </category>
+                    <category name="Basic Blocks" colour="#757575">
+                        <block type="start"></block>
+                    </category>
+                    <category name="ROS2 Control" colour="#FF5722">
+                        <block type="controller"></block>
+                        <block type="hardware_interface"></block>
+                        <block type="transmission"></block>
+                        <block type="joint_limits"></block>
+                        <block type="joint_list"></block>
+                    </category>
+                    <category name="Gazebo Plugins" colour="#FFAA00">
+                        <block type="camera_plugin"></block>
+                        <block type="lidar_plugin"></block>
+                    </category>
+                    <category name="Config" colour="#E91E63">
+                        <block type="controller_parameters"></block>
+                    </category>
+                </xml>`
+            });
+        
+            // 블록 정의
+            Blockly.defineBlocksWithJsonArray([
+                {
+                    "type": "start",
+                    "message0": "start",
+                    "nextStatement": null,
+                    "colour": 330,
+                    "tooltip": "The starting point of the block. Automatically adds a world link.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "world_link",
+                    "message0": "World Link (Fixed) %1",
+                    "args0": [
+                        { "type": "field_input", "name": "LINK_NAME", "text": "world" }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 210,
+                    "tooltip": "Defines the root fixed link (World Link). No shapes allowed.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "link",
+                    "message0": "Link %1",
+                    "args0": [
+                        { "type": "field_input", "name": "LINK_NAME", "text": "link_name" }
+                    ],
+                    "message1": "Add shape %1",
+                    "args1": [
+                        { "type": "input_statement", "name": "SHAPE" }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 120,
+                    "tooltip": "Defines a link with an optional shape.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "joint",
+                    "message0": "Joint %1 to %2",
+                    "args0": [
+                        { "type": "field_input", "name": "PARENT_LINK", "text": "parent_link" },
+                        { "type": "field_input", "name": "CHILD_LINK", "text": "child_link" }
+                    ],
+                    "message1": "Joint type %1",
+                    "args1": [
+                        {
+                            "type": "field_dropdown",
+                            "name": "JOINT_TYPE",
+                            "options": [
+                                ["Fixed", "fixed"],
+                                ["Revolute", "revolute"],
+                                ["Prismatic", "prismatic"],
+                                ["Continuous", "continuous"]
+                            ]
+                        }
+                    ],
+                    "message2": "Add joint elements %1",
+                    "args2": [
+                        {"type": "input_statement", "name": "JOINT_ELEMENTS"}
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 60,
+                    "tooltip": "Defines a joint connecting two links with a specified type.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "box",
+                    "message0": "Box with length %1 width %2 height %3",
+                    "args0": [
+                        { "type": "field_number", "name": "LENGTH", "value": 1, "min": 0 },
+                        { "type": "field_number", "name": "WIDTH", "value": 1, "min": 0 },
+                        { "type": "field_number", "name": "HEIGHT", "value": 1, "min": 0 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 20,
+                    "tooltip": "Defines a Box with specified dimensions",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "cylinder", 
+                    "message0": "Cylinder with radius %1 height %2",
+                    "args0": [
+                        { "type": "field_number", "name": "RADIUS", "value": 1, "min": 0 },
+                        { "type": "field_number", "name": "HEIGHT", "value": 1, "min": 0 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 20,
+                    "tooltip": "Defines a Cylinder with specified dimensions",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "material",
+                    "message0": "Color RGBA %1 %2 %3 %4",
+                    "args0": [
+                        {"type": "field_number", "name":"R", "value":0.5, "min":0,"max":1},
+                        {"type": "field_number", "name":"G", "value":0.5, "min":0,"max":1},
+                        {"type": "field_number", "name":"B", "value":0.5, "min":0,"max":1},
+                        {"type": "field_number", "name":"A", "value":1.0, "min":0,"max":1},
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 300,
+                    "tooltip": "Setting a Material",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "origin",
+                    "message0": "Origin x %1 y %2 z %3 r %4 p %5 y %6",
+                    "args0": [
+                        {"type": "field_number", "name": "X", "value": 0},
+                        {"type": "field_number", "name": "Y", "value": 0},
+                        {"type": "field_number", "name": "Z", "value": 0},
+                        {"type": "field_number", "name": "R", "value": 0},
+                        {"type": "field_number", "name": "P", "value": 0},
+                        {"type": "field_number", "name": "YAW", "value": 0},
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null, 
+                    "colour": 180,
+                    "tooltip": "Set the origin position and rotation.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "axis",
+                    "message0": "Axis x %1 y %2 z %3",
+                    "args0": [
+                    { "type": "field_number", "name": "X", "value": 0 },
+                    { "type": "field_number", "name": "Y", "value": 0 },
+                    { "type": "field_number", "name": "Z", "value": 1 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 200,
+                    "tooltip": "Sets the axis of rotation or movement for the joint.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "limit",
+                    "message0": "lower %1 upper %2 effort %3 velocity %4",
+                    "args0": [
+                    { "type": "field_number", "name": "LOWER", "value": -1.57 },
+                    { "type": "field_number", "name": "UPPER", "value": 1.57 },
+                    { "type": "field_number", "name": "EFFORT", "value": 1.0 },
+                    { "type": "field_number", "name": "VELOCITY", "value": 1.0 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 0,
+                    "tooltip": "Set the motion limits of the joint.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "controller",
+                    "message0": "Controller %1",
+                    "args0": [
+                        { "type": "field_input", "name": "CONTROLLER_NAME", "text": "controller_name" }
+                    ],
+                    "message1": "Type %1",
+                    "args1": [
+                        {
+                            "type": "field_dropdown",
+                            "name": "CONTROLLER_TYPE",
+                            "options": [
+                                ["trajectory_controller", "trajectory_controller"],
+                                ["position_controller", "position_controller"],
+                                ["velocity_controller", "velocity_controller"],
+                                ["effort_controller", "effort_controller"]
+                            ]
+                        }
+                    ],
+                    "message2": "Joints %1",
+                    "args2": [
+                        { "type": "input_statement", "name": "JOINTS" }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 160,
+                    "tooltip": "Defines a controller with specified type and joints.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "joint_list",
+                    "message0": "Joint %1",
+                    "args0": [
+                        { "type": "field_input", "name": "JOINT_NAME", "text": "joint_name" }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 120,
+                    "tooltip": "Specifies a joint to be controlled.",
+                    "helpUrl": ""
+                },
+
+                {
+                    "type": "hardware_interface",
+                    "message0": "Joint %1 Interface %2",
+                    "args0": [
+                        { "type": "field_input", "name": "JOINT_NAME", "text": "joint_name" },
+                        {
+                            "type": "field_dropdown",
+                            "name": "INTERFACE_TYPE",
+                            "options": [
+                                ["PositionJointInterface", "PositionJointInterface"],
+                                ["VelocityJointInterface", "VelocityJointInterface"],
+                                ["EffortJointInterface", "EffortJointInterface"],
+                                ["JointStateInterface", "JointStateInterface"]
+                            ]
+                        }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 230,
+                    "tooltip": "Defines the hardware interface for a joint.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "controller_parameters",
+                    "message0": "Controller Parameters for %1",
+                    "args0": [
+                        { "type": "field_input", "name": "CONTROLLER_NAME", "text": "controller_name" }
+                    ],
+                    "message1": "Sampling Time %1",
+                    "args1": [
+                        { "type": "field_number", "name": "SAMPLING_TIME", "value": 0.1 }
+                    ],
+                    "message2": "PID Values: P %1 I %2 D %3",
+                    "args2": [
+                        { "type": "field_number", "name": "P_GAIN", "value": 1.0 },
+                        { "type": "field_number", "name": "I_GAIN", "value": 0.0 },
+                        { "type": "field_number", "name": "D_GAIN", "value": 0.1 }
+                    ],
+                    "message3": "Update Rate %1",
+                    "args3": [
+                        { "type": "field_number", "name": "UPDATE_RATE", "value": 100 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 200,
+                    "tooltip": "Defines controller parameters such as sampling time, PID values, and update rate.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "transmission",
+                    "message0": "Transmission for %1",
+                    "args0": [
+                        { "type": "field_input", "name": "TRANSMISSION_NAME", "text": "transmission_name" }
+                    ],
+                    "message1": "Joint Name %1",
+                    "args1": [
+                        { "type": "field_input", "name": "JOINT_NAME", "text": "joint_name" }
+                    ],
+                    "message2": "Mechanical Reduction %1",
+                    "args2": [
+                        { "type": "field_number", "name": "MECHANICAL_REDUCTION", "value": 1 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 180,
+                    "tooltip": "Defines transmission with mechanical reduction for a joint.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "joint_limits",
+                    "message0": "Joint Limits for %1",
+                    "args0": [
+                        { "type": "field_input", "name": "JOINT_NAME", "text": "joint_name" }
+                    ],
+                    "message1": "Position: Lower %1 Upper %2",
+                    "args1": [
+                        { "type": "field_number", "name": "LOWER", "value": -1.57 },
+                        { "type": "field_number", "name": "UPPER", "value": 1.57 }
+                    ],
+                    "message2": "Effort %1 Velocity %2",
+                    "args2": [
+                        { "type": "field_number", "name": "EFFORT", "value": 1.0 },
+                        { "type": "field_number", "name": "VELOCITY", "value": 1.0 }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 0,
+                    "tooltip": "Defines the physical limits of a joint including position, effort, and velocity.",
+                    "helpUrl": ""
+                },
+                {
+                    "type": "camera_plugin",
+                    "message0": "Camera Plugin",
+                    "message1": "Name: %1",
+                    "args1": [
+                    { "type": "field_input", "name": "PLUGIN_NAME", "text": "camera_controller" }
+                    ],
+                    "message2": "Update Rate: %1",
+                    "args2": [
+                    { "type": "field_number", "name": "UPDATE_RATE", "value": 30, "min": 0 }
+                    ],
+                    "message3": "Camera Name: %1",
+                    "args3": [
+                    { "type": "field_input", "name": "CAMERA_NAME", "text": "my_camera" }
+                    ],
+                    "message4": "Image Topic: %1",
+                    "args4": [
+                    { "type": "field_input", "name": "IMAGE_TOPIC", "text": "image_raw" }
+                    ],
+                    "message5": "Info Topic: %1",
+                    "args5": [
+                    { "type": "field_input", "name": "INFO_TOPIC", "text": "camera_info" }
+                    ],
+                    "message6": "Always On: %1",
+                    "args6": [
+                    { "type": "field_checkbox", "name": "ALWAYS_ON", "checked": true }
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 160,
+                    "tooltip": "Adds a Gazebo camera plugin (with sensor) to the URDF",
+                    "helpUrl": "",
+                    "inputsInline": false
+                },
+                {
+                    "type": "joint_list",
+                    "message0": "Joint %1",
+                    "args0": [{ "type": "field_input", "name": "JOINT_NAME", "text": "my_joint" }],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 120
+                },
+                {
+                    "type": "lidar_plugin",
+                    "message0": "LiDAR (ray) Sensor Name %1 Frame %2",
+                    "args0": [
+                        {"type": "field_input", "name": "SENSOR_NAME",  "text": "laser"},
+                        {"type": "field_input", "name": "FRAME_NAME",   "text": "laser_frame"}
+                    ],
+                    "message1": "Sample %1 Azimuth angle %2° ~ %3°",
+                    "args1": [
+                        {"type": "field_number","name": "SAMPLES",      "value": 360, "min": 1},
+                        {"type": "field_angle", "name": "MIN_ANGLE",    "angle": -180},
+                        {"type": "field_angle", "name": "MAX_ANGLE",    "angle":  180}
+                    ],
+                    "message2": "Min_dist %1 m Max_dist %2 m Update_Rate %3 Hz",
+                    "args2": [
+                        {"type": "field_number","name": "RANGE_MIN",    "value": 0.3, "min": 0},
+                        {"type": "field_number","name": "RANGE_MAX",    "value": 12,  "min": 0},
+                        {"type": "field_number","name": "UPDATE_RATE",  "value": 10,  "min": 0}
+                    ],
+                    "previousStatement": null,
+                    "nextStatement": null,
+                    "colour": 20,
+                    "tooltip": "Add the Gazebo ray sensor to URDF.",
+                    "helpUrl": ""
+                },
+            ]);
+        
+            Blockly.JavaScript['start'] = function(block) {
+                return ''; 
+            };
+
+        
+            Blockly.JavaScript['material'] = function(block) {
+                var r = block.getFieldValue('R');
+                var g = block.getFieldValue('G');
+                var b = block.getFieldValue('B');
+                var a = block.getFieldValue('A');
+                var code = `<material name="color">
+            <color rgba="${r} ${g} ${b} ${a}"/>
+            </material>
+            `;
+                return code;
+            };
+        
+            Blockly.JavaScript['limit'] = function(block) {
+                var lower = block.getFieldValue('LOWER');
+                var upper = block.getFieldValue('UPPER');
+                var effort = block.getFieldValue('EFFORT');
+                var velocity = block.getFieldValue('VELOCITY');
+                var code = `<limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+            `;
+                return code;
+            };
+        
+            Blockly.JavaScript['origin'] = function(block) {
+                var x = block.getFieldValue('X');
+                var y = block.getFieldValue('Y');
+                var z = block.getFieldValue('Z');
+                var r = block.getFieldValue('R');
+                var p = block.getFieldValue('P');
+                var yaw = block.getFieldValue('YAW');
+                var code = `<origin xyz="${x} ${y} ${z}" rpy="${r} ${p} ${yaw}"/>
+            `;
+                return code;
+            };
+        
+            Blockly.JavaScript['axis'] = function(block) {
+                var x = block.getFieldValue('X');
+                var y = block.getFieldValue('Y');
+                var z = block.getFieldValue('Z');
+                var code = `<axis xyz="${x} ${y} ${z}"/>
+            `;
+                return code;
+            };
+        
+            Blockly.JavaScript['world_link'] = function(block) {
+                var link_name = block.getFieldValue('LINK_NAME');
+                var code = `<link name="${link_name}">
+            </link>
+            `;
+                return code;
+            };
+        
+            Blockly.JavaScript['link'] = function(block) {
+                var link_name = block.getFieldValue('LINK_NAME');
+                var statements_shape = Blockly.JavaScript.statementToCode(block, 'SHAPE');
+                var code = `<link name="${link_name}">
+            <visual>
+                ${statements_shape}
+            </visual>
+            <collision>
+                ${statements_shape}
+            </collision>
+            <inertial>
+                <mass value="1.0"/>
+                <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0" izz="0.1"/>
+            </inertial>
+        </link>
+        `;
+                return code;
+            };
+        
+            Blockly.JavaScript['joint'] = function(block) {
+                var parent = block.getFieldValue('PARENT_LINK');
+                var child = block.getFieldValue('CHILD_LINK');
+                var joint_type = block.getFieldValue('JOINT_TYPE');
+                var statements_elements = Blockly.JavaScript.statementToCode(block, 'JOINT_ELEMENTS');
+                var code = `<joint name="${parent}_to_${child}" type="${joint_type}">
+            <parent link="${parent}"/>
+            <child link="${child}"/>
+            ${statements_elements}
+        </joint>
+        `;
+                return code;
+            };
+
+            Blockly.JavaScript['joint_list'] = function(block){
+                return block.getFieldValue('JOINT_NAME') + '\n';   // 오직 이름만
+            };
+        
+            Blockly.JavaScript['box'] = function(block) {
+                var length = block.getFieldValue('LENGTH');
+                var width = block.getFieldValue('WIDTH');
+                var height = block.getFieldValue('HEIGHT');
+                var code = `<geometry>
+                <box size="${length} ${width} ${height}"/>
+            </geometry>
+        `;
+                return code;
+            };
+        
+            Blockly.JavaScript['cylinder'] = function(block) {
+                var radius = block.getFieldValue('RADIUS');
+                var height = block.getFieldValue('HEIGHT');
+                var code = `<geometry>
+                    <cylinder radius="${radius}" length="${height}"/>
+                </geometry>
+                <origin rpy="1.5708 0 0"/>`;
+                return code;
+            };
+
+            Blockly.JavaScript['controller'] = function(block){
+                const sysName = block.getFieldValue('CONTROLLER_NAME') || "MyRobotSystem";
+                const joints  = Blockly.JavaScript.statementToCode(block,'JOINTS')
+                                .split('\n').map(s=>s.trim()).filter(Boolean); // ['my_joint']
+
+                let jointXml = '';
+                joints.forEach(j=>{
+                    jointXml += `  <joint name="${j}">
+                    <command_interface name="position">
+                    <param name="min">-1.57</param>
+                    <param name="max"> 1.57</param>
+                    </command_interface>
+                    <state_interface name="position"/>
+                    <state_interface name="velocity"/>
+                </joint>\n`;
+                });
+
+                return `
+        <ros2_control name="${sysName}" type="system">
+            <hardware>
+                <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+            </hardware>
+        ${jointXml}</ros2_control>\n`;
+            };
+
+            // 컨트롤러 파라미터 블록 (XML 형식)
+            Blockly.JavaScript['controller_parameters'] = function(block) {
+                var controllerName = block.getFieldValue('CONTROLLER_NAME');
+                var samplingTime = block.getFieldValue('SAMPLING_TIME');
+                var pGain = block.getFieldValue('P_GAIN');
+                var iGain = block.getFieldValue('I_GAIN');
+                var dGain = block.getFieldValue('D_GAIN');
+                var updateRate = block.getFieldValue('UPDATE_RATE');
+                
+                var code = `<controller_parameters controller="${controllerName}">
+                <sampling_time>${samplingTime}</sampling_time>
+                <pid p="${pGain}" i="${iGain}" d="${dGain}"/>
+                <update_rate>${updateRate}</update_rate>
+                </controller_parameters>
+                `;
+                return code;
+            };
+
+            // Joint List 블록: URDF에는 일반적으로 조인트 목록을 별도로 나열하지 않으므로, 필요에 따라 사용합니다.
+            Blockly.JavaScript['joint_list'] = function(block) {
+                var jointName = block.getFieldValue('JOINT_NAME');
+                return block.getFieldValue('JOINT_NAME') + '\n';
+            };
+
+            // Hardware Interface 블록 (XML 형식)
+            Blockly.JavaScript['hardware_interface'] = function(b){
+                const it = b.getFieldValue('INTERFACE_TYPE');  // position / velocity / effort
+                return `    <command_interface name="${it}"/>\n    <state_interface name="${it}"/>\n`;
+            };
+
+            // Transmission 블록 (XML 형식)
+            Blockly.JavaScript['transmission'] = function(block) {
+                const tname = block.getFieldValue('TRANSMISSION_NAME');
+                const joint = block.getFieldValue('JOINT_NAME');
+                const red   = block.getFieldValue('MECHANICAL_REDUCTION');
+
+                return `<transmission name="${tname}">
+                <type>transmission_interface/SimpleTransmission</type>
+                <joint name="${joint}">
+                    <hardware_interface>hardware_interface/PositionJointInterface</hardware_interface>
+                </joint>
+                <actuator name="${tname}_actuator">
+                    <mechanicalReduction>${red}</mechanicalReduction>
+                    <hardware_interface>hardware_interface/PositionJointInterface</hardware_interface>
+                </actuator>
+            </transmission>\n`;
+            };
+
+            // Joint Limits 블록 (XML 형식)
+            Blockly.JavaScript['joint_limits'] = function(block) {
+                var jointName = block.getFieldValue('JOINT_NAME');
+                var lower = block.getFieldValue('LOWER');
+                var upper = block.getFieldValue('UPPER');
+                var effort = block.getFieldValue('EFFORT');
+                var velocity = block.getFieldValue('VELOCITY');
+                
+                var code = `<joint_limits name="${jointName}">
+                <limit lower="${lower}" upper="${upper}" effort="${effort}" velocity="${velocity}"/>
+                </joint_limits>
+                `;
+                return code;
+            };
+
+
+            Blockly.JavaScript['camera_plugin'] = function(block) {
+                var pluginName = block.getFieldValue('PLUGIN_NAME');
+                var updateRate = block.getFieldValue('UPDATE_RATE');
+                var cameraName = block.getFieldValue('CAMERA_NAME');
+                var imageTopic = block.getFieldValue('IMAGE_TOPIC');
+                var infoTopic = block.getFieldValue('INFO_TOPIC');
+                var alwaysOn = block.getFieldValue('ALWAYS_ON') === 'TRUE' ? 'true' : 'false';
+
+                var code = `<gazebo reference="camera_link">
+                <sensor name="camera_sensor" type="camera">
+                    <pose>0 0 0 0 0 0</pose>
+                    <visualize>true</visualize>
+                    <update_rate>${updateRate}</update_rate>
+                    <camera>
+                    <horizontal_fov>1.089</horizontal_fov>
+                    <image>
+                        <width>640</width>
+                        <height>480</height>
+                        <format>R8G8B8</format>
+                    </image>
+                    <clip>
+                        <near>0.05</near>
+                        <far>8.0</far>
+                    </clip>
+                    </camera>
+                    <plugin name="${pluginName}" filename="libgazebo_ros_camera.so">
+                    <camera_name>${cameraName}</camera_name>
+                    <image_topic_name>${imageTopic}</image_topic_name>
+                    <camera_info_topic_name>${infoTopic}</camera_info_topic_name>
+                    <frame_name>camera_link</frame_name>
+                    </plugin>
+                </sensor>
+                </gazebo>
+                `;
+                return code;
+            };
+
+            Blockly.JavaScript['lidar_plugin'] = function(block) {
+                const name        = block.getFieldValue('SENSOR_NAME');
+                const frame       = block.getFieldValue('FRAME_NAME');
+                const samples     = block.getFieldValue('SAMPLES');
+                const minAngleDeg = block.getFieldValue('MIN_ANGLE');
+                const maxAngleDeg = block.getFieldValue('MAX_ANGLE');
+                const rMin        = block.getFieldValue('RANGE_MIN');
+                const rMax        = block.getFieldValue('RANGE_MAX');
+                const updateRate  = block.getFieldValue('UPDATE_RATE');
+
+                const deg2rad = d => (d * Math.PI / 180).toFixed(2);
+                const minRad  = -deg2rad(minAngleDeg);
+                const maxRad  = deg2rad(maxAngleDeg);
+
+                return `<gazebo reference="${frame}">
+                <sensor name="${name}" type="ray">
+                    <pose>0 0 0 0 0 0</pose>
+                    <visualize>true</visualize>
+                    <update_rate>${updateRate}</update_rate>
+                    <ray>
+                    <scan>
+                        <horizontal>
+                        <samples>${samples}</samples>
+                        <min_angle>${minRad}</min_angle>
+                        <max_angle>${maxRad}</max_angle>
+                        </horizontal>
+                    </scan>
+                    <range>
+                        <min>${rMin}</min>
+                        <max>${rMax}</max>
+                    </range>
+                    </ray>
+                    <plugin name="${name}_controller" filename="libgazebo_ros_ray_sensor.so">
+                    <ros><argument>~/out:=scan</argument></ros>
+                    <output_type>sensor_msgs/LaserScan</output_type>
+                    <frame_name>${frame}</frame_name>
+                    </plugin>
+                </sensor>
+                </gazebo>\n`;
+            };
+
+        function updateCode() {
+            let code = `<!-- URDF File Generated by Blockly -->
+    <robot name="GeneratedRobot">
+        `;
+            code += Blockly.JavaScript.workspaceToCode(workspace);
+            code += `</robot>`;
+            document.getElementById('codeDiv').textContent = code;
+            window.savedURDFCode = code;
+            console.log("Generated URDF Code:", window.savedURDFCode);
+        }
+
+        workspace.addChangeListener(updateCode);
+
+        function showCode() {
+            document.getElementById('codeContainer').style.display = 'block';
+        }
+
+        function closeCode() {
+            document.getElementById('codeContainer').style.display = 'none';
+        }
+
+        function renderURDF() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.urdf,.zip';
+
+            input.onchange = event => {
+                const file = event.target.files[0];
+                if (file) {
+                    if (file.name.endsWith('.zip')) {
+                        JSZip.loadAsync(file).then(zip => {
+                            const urdfFile = Object.keys(zip.files).find(name => name.endsWith('.urdf'));
+                            if (urdfFile) {
+                                zip.file(urdfFile).async('text').then(urdfText => {
+                                    console.log("Loaded URDF from ZIP:", urdfText);
+                                });
+                            } else {
+                                alert('ZIP 파일 내에 URDF 파일이 없습니다.');
+                            }
+                        }).catch(error => {
+                            console.error('ZIP 파일 읽기 오류:', error);
+                            alert('ZIP 파일을 읽는 중 오류가 발생했습니다.');
+                        });
+                    } else if (file.name.endsWith('.urdf')) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                            console.log("Loaded URDF:", reader.result);
+                        };
+                        reader.readAsText(file);
+                    } else {
+                        alert('URDF 또는 ZIP 파일을 선택해 주세요.');
+                    }
+                }
+            };
+
+            input.click();
+        };
+
+        function sendURDFToSimulation() {
+            const urdfCode = window.savedURDFCode || '';
+            if (!urdfCode) {
+                alert('First, combine the blocks to generate URDF code.');
+                return;
+            }
+
+            if (window.simulationWindow && !window.simulationWindow.closed) {
+                window.simulationWindow.close();
+            }
+
+            window.simulationWindow = window.open('simulation.html', 'simulationWindow', 'width=800,height=600');
+
+            function receiveMessage(event) {
+                if (event.data && event.data.type === 'simulationReady') {
+                    window.removeEventListener('message', receiveMessage);
+                    window.simulationWindow.postMessage({ type: 'loadURDF', urdf: urdfCode }, '*');
+                }
+            }
+
+            window.addEventListener('message', receiveMessage);
+        }
+
+        function exportToROS() {
+            const timestamp = new Date().toISOString().replace(/[-:.]/g, "");
+            const urdfFileName = `robot_${timestamp}.urdf`;
+
+            const urdfCode = window.savedURDFCode || '<robot name="GeneratedRobot"></robot>';
+
+            const blob = new Blob([urdfCode], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = urdfFileName;
+            link.click();
+
+            setTimeout(() => URL.revokeObjectURL(link.href), 100);
+        }
+
+
+        function containsROS2ControlBlocks() {
+            const blocks = workspace.getAllBlocks(false);
+            return blocks.some(block => block.type.includes('controller') || block.type.includes('ros2_control'));
+        }
+
+        window.exportToROS = exportToROS;
+        window.showCode = showCode;
+        window.closeCode = closeCode;
+        window.sendURDFToSimulation = sendURDFToSimulation;
+
+        </script>    
+    </body>
+    </html>
+
+    
